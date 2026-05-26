@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Europe June 2026</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: #faf9f6; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+const SHEETS_URL = "https://script.google.com/macros/s/AKfycby2elaTvSQK0aXYZc-aF3hpeamPUw1jYV4v4j_NMiI0avCFR57056N4IhTsqmRM4JTFCA/exec";
+
+async function sheetsGet(key) {
+  try {
+    const res = await fetch(`${SHEETS_URL}?action=get&key=${encodeURIComponent(key)}`, { redirect: "follow" });
+    const data = await res.json();
+    return data.ok && data.value ? { value: data.value } : null;
+  } catch(e) { return null; }
+}
+
+async function sheetsSet(key, value) {
+  try {
+    await fetch(SHEETS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ action: "set", key, value }),
+    });
+  } catch(e) {}
+}
+
+const CATEGORY_CONFIG = {
+  flight: { icon: "✈️", label: "Flight", color: "#1a6fc4", bg: "#e6f1fb" },
+  hotel: { icon: "🏨", label: "Hotel", color: "#0f6e56", bg: "#e1f5ee" },
+  airbnb: { icon: "🏠", label: "Airbnb", color: "#993556", bg: "#fbeaf0" },
+  train: { icon: "🚆", label: "Train", color: "#533ab7", bg: "#eeedfe" },
+  racing: { icon: "🏎️", label: "Formula 1", color: "#993c1d", bg: "#faece7" },
+  activity: { icon: "🎭", label: "Activity", color: "#ba7517", bg: "#faeeda" },
+  meal: { icon: "🍽️", label: "Meal", color: "#a32d2d", bg: "#fcebeb" },
+  transport: { icon: "🚌", label: "Transport", color: "#3b6d11", bg: "#eaf3de" },
+  afterparty: { icon: "🪩", label: "After-Party", color: "#533ab7", bg: "#eeedfe" },
+  other: { icon: "📌", label: "Other", color: "#5f5e5a", bg: "#f1efe8" },
+};
+
+const MONACO = "Circuit de Monaco, 23 Boulevard Albert 1er, La Condamine 98000 Monaco";
+const BARCELONA = "Circuit de Barcelona-Catalunya, Mas la Moreneta, 08160 Montmeló, Barcelona, Spain";
+
+const SEED_EVENTS = [
+  { id:"fl-01", category:"flight", title:"RDU → NCE via FRA (Lufthansa)", date:"2026-06-03", startTime:"15:40", endTime:"09:10", endDate:"2026-06-04", location:"Raleigh Durham (RDU) → Nice Côte D'Azur (NCE)", status:"", cost:"", currency:"EUR", confirmationCode:"AMUZSR", notes:"UA9505 RDU→FRA (8h 15m, A330-300) · 1h 40m layover FRA · UA9200 FRA→NCE (1h 35m, A320) · Economy · 1×23kg bag" },
+  { id:"ap-01", category:"afterparty", title:"Central Cee & Lil Baby", date:"2026-06-06", startTime:"23:00", endTime:"", location:"Lilly's Club, 12 Avenue des Spélugues, 98000 Monaco", status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"ap-02", category:"afterparty", title:"John Summit & Travis Scott", date:"2026-06-07", startTime:"23:00", endTime:"", location:"Lilly's Club, 12 Avenue des Spélugues, 98000 Monaco", status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"ap-03", category:"afterparty", title:"50 Cent", date:"2026-06-04", startTime:"23:00", endTime:"", location:"Twiga, 10 Avenue Princesse Grace, Larvotto, 98000 Monaco", status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"ap-04", category:"afterparty", title:"Fisher", date:"2026-06-06", startTime:"23:00", endTime:"", location:"Jimmy'z, 26 Avenue Princesse Grace, Larvotto, 98000 Monaco", status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"ap-05", category:"afterparty", title:"Black Coffee", date:"2026-06-07", startTime:"23:00", endTime:"", location:"Jimmy'z, 26 Avenue Princesse Grace, Larvotto, 98000 Monaco", status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"tr-01", category:"train", title:"TER Train — Nice Ville to Monaco Monte-Carlo", date:"2026-06-05", startTime:"", endTime:"", location:"Nice Ville Station → Monaco Monte-Carlo Station", status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"tr-02", category:"train", title:"TER Train — Nice Ville to Monaco Monte-Carlo", date:"2026-06-06", startTime:"", endTime:"", location:"Nice Ville Station → Monaco Monte-Carlo Station", status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"tr-03", category:"train", title:"TER Train — Nice Ville to Monaco Monte-Carlo", date:"2026-06-07", startTime:"", endTime:"", location:"Nice Ville Station → Monaco Monte-Carlo Station", status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"tr-04", category:"train", title:"TER Train — Monaco Monte-Carlo to Nice Ville", date:"2026-06-05", startTime:"23:00", endTime:"", location:"Monaco Monte-Carlo Station → Nice Ville Station", status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"tr-05", category:"train", title:"TER Train — Monaco Monte-Carlo to Nice Ville", date:"2026-06-06", startTime:"23:00", endTime:"", location:"Monaco Monte-Carlo Station → Nice Ville Station", status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"tr-06", category:"train", title:"TER Train — Monaco Monte-Carlo to Nice Ville", date:"2026-06-07", startTime:"23:00", endTime:"", location:"Monaco Monte-Carlo Station → Nice Ville Station", status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"ml-01", category:"meal", title:"La Guérite", date:"2026-06-08", startTime:"12:00", endTime:"", location:"Île Sainte-Marguerite, 06400 Cannes, France", status:"", cost:"", currency:"EUR", confirmationCode:"AZBMEX32P8FD", notes:"" },
+  { id:"fl-02", category:"flight", title:"NCE → BCN", date:"2026-06-10", startTime:"", endTime:"", location:"Nice Côte D'Azur (NCE) → Barcelona El Prat (BCN)", status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"fl-03", category:"flight", title:"BCN → CDG", date:"2026-06-15", startTime:"", endTime:"", location:"Barcelona El Prat (BCN) → Paris Charles de Gaulle (CDG)", status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"tr-07", category:"train", title:"TER Train — Nice Ville to Cannes", date:"2026-06-08", startTime:"", endTime:"", location:"Nice Ville Station → Cannes Station", status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-01", category:"racing", title:"F1 FIA Car Presentation",       date:"2026-06-05", startTime:"12:00", endTime:"13:00", location:MONACO,    status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-02", category:"racing", title:"F1 First Practice Session",      date:"2026-06-05", startTime:"13:30", endTime:"14:30", location:MONACO,    status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-03", category:"racing", title:"F1 Teams' Press Conference",     date:"2026-06-05", startTime:"15:30", endTime:"16:30", location:MONACO,    status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-04", category:"racing", title:"F1 Second Practice Session",     date:"2026-06-05", startTime:"17:00", endTime:"18:00", location:MONACO,    status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-05", category:"racing", title:"F1 Third Practice Session",      date:"2026-06-06", startTime:"12:30", endTime:"13:30", location:MONACO,    status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-06", category:"racing", title:"F2 Sprint Race",                 date:"2026-06-06", startTime:"14:15", endTime:"15:05", location:MONACO,    status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-07", category:"racing", title:"F1 Qualifying Session",          date:"2026-06-06", startTime:"16:00", endTime:"17:00", location:MONACO,    status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-08", category:"racing", title:"F1 Press Conference",            date:"2026-06-06", startTime:"17:00", endTime:"18:00", location:MONACO,    status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-09", category:"racing", title:"F2 Feature Race",                date:"2026-06-07", startTime:"09:35", endTime:"10:40", location:MONACO,    status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-10", category:"racing", title:"F1 Drivers' Parade",             date:"2026-06-07", startTime:"13:00", endTime:"13:30", location:MONACO,    status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-11", category:"racing", title:"F1 National Anthem",             date:"2026-06-07", startTime:"14:44", endTime:"14:46", location:MONACO,    status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-12", category:"racing", title:"🏆 F1 Monaco Grand Prix",        date:"2026-06-07", startTime:"15:00", endTime:"17:00", location:MONACO,    status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-13", category:"racing", title:"F1 First Practice Session",      date:"2026-06-12", startTime:"13:30", endTime:"14:30", location:BARCELONA, status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-14", category:"racing", title:"F1 Second Practice Session",     date:"2026-06-12", startTime:"17:00", endTime:"18:00", location:BARCELONA, status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-15", category:"racing", title:"F1 Third Practice Session",      date:"2026-06-13", startTime:"12:30", endTime:"13:30", location:BARCELONA, status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-16", category:"racing", title:"F1 Qualifying Session",          date:"2026-06-13", startTime:"16:00", endTime:"17:00", location:BARCELONA, status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+  { id:"f1-17", category:"racing", title:"🏆 F1 Spanish Grand Prix",       date:"2026-06-14", startTime:"15:00", endTime:"17:00", location:BARCELONA, status:"", cost:"", currency:"EUR", confirmationCode:"", notes:"" },
+];
+
+const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF"];
+
+const EMPTY_ITEM = {
+  id: null, category: "flight", title: "", date: "", endDate: "", startTime: "", endTime: "",
+  location: "", notes: "", cost: "", currency: "EUR", confirmationCode: "", status: "",
+};
+
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function fmt12(t) {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "pm" : "am";
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2,"0")}${ampm}`;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+function groupByDate(items) {
+  const groups = {};
+  items.forEach(item => {
+    const key = item.date || "No Date";
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(item);
+    // For hotels/airbnbs with an end date, also show on the end date
+    if (item.endDate && item.endDate !== item.date && (item.category === "hotel" || item.category === "airbnb")) {
+      if (!groups[item.endDate]) groups[item.endDate] = [];
+      groups[item.endDate].push({ ...item, _isCheckout: true });
+    }
+  });
+  return Object.entries(groups).sort(([a], [b]) => {
+    if (a === "No Date") return 1;
+    if (b === "No Date") return -1;
+    return a.localeCompare(b);
+  });
+}
+
+function Modal({ isOpen, onClose, children }) {
+  useEffect(() => {
+    if (isOpen) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 1000,
+      background: "rgba(0,0,0,0.45)", display: "flex",
+      alignItems: "center", justifyContent: "center", padding: "1rem",
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: "#fff", borderRadius: 16, width: "100%", maxWidth: 560,
+        maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.18)",
+      }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ItemForm({ initial, onSave, onClose, onDelete }) {
+  const [form, setForm] = useState({ ...EMPTY_ITEM, ...initial });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSubmit = () => {
+    if (!form.title.trim()) return alert("Please add a title.");
+    onSave({ ...form, id: form.id || generateId() });
+  };
+
+  const inp = {
+    width: "100%", padding: "9px 12px", border: "1.5px solid #e2e0d8",
+    borderRadius: 8, fontSize: 14, fontFamily: "Georgia, serif",
+    background: "#fafaf8", color: "#1a1916", outline: "none",
+    boxSizing: "border-box",
+  };
+
+  return (
+    <div style={{ padding: "1.5rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+        <h2 style={{ margin: 0, fontSize: 18, fontFamily: "'Playfair Display', Georgia, serif", color: "#1a1916" }}>
+          {form.id ? "Edit Item" : "Add to Itinerary"}
+        </h2>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "#888", lineHeight: 1 }}>×</button>
+      </div>
+
+      {/* Category */}
+      <div style={{ marginBottom: "1rem" }}>
+        <label style={{ display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#888", marginBottom: 6 }}>Type</label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
+            <button key={key} onClick={() => set("category", key)} style={{
+              padding: "5px 12px", borderRadius: 20, border: "1.5px solid",
+              borderColor: form.category === key ? cfg.color : "#e2e0d8",
+              background: form.category === key ? cfg.bg : "#fafaf8",
+              color: form.category === key ? cfg.color : "#666",
+              cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif",
+              display: "flex", alignItems: "center", gap: 5,
+              transition: "all 0.15s",
+            }}>
+              <span>{cfg.icon}</span> {cfg.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Title */}
+      <div style={{ marginBottom: "1rem" }}>
+        <label style={{ display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#888", marginBottom: 6 }}>Title *</label>
+        <input style={inp} placeholder="e.g. Eiffel Tower, Hotel de Paris, CDG → LHR…"
+          value={form.title} onChange={e => set("title", e.target.value)} />
+      </div>
+
+      {/* Date & Time */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: "0.5rem" }}>
+        <div>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#888", marginBottom: 6 }}>Start Date</label>
+          <input type="date" style={inp} value={form.date} onChange={e => set("date", e.target.value)} />
+        </div>
+        <div>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#888", marginBottom: 6 }}>End Date <span style={{ color: "#bbb", fontWeight: 400 }}>(optional)</span></label>
+          <input type="date" style={inp} value={form.endDate || ""} onChange={e => set("endDate", e.target.value)} />
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: "1rem" }}>
+        <div>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#888", marginBottom: 6 }}>Start Time</label>
+          <input type="time" style={inp} value={form.startTime} onChange={e => set("startTime", e.target.value)} />
+        </div>
+        <div>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#888", marginBottom: 6 }}>End Time</label>
+          <input type="time" style={inp} value={form.endTime} onChange={e => set("endTime", e.target.value)} />
+        </div>
+      </div>
+
+      {/* Location */}
+      <div style={{ marginBottom: "1rem" }}>
+        <label style={{ display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#888", marginBottom: 6 }}>Location / City</label>
+        <input style={inp} placeholder="e.g. Paris, France" value={form.location} onChange={e => set("location", e.target.value)} />
+      </div>
+
+      {/* Cost & Confirmation */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: "1rem" }}>
+        <div>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#888", marginBottom: 6 }}>Cost</label>
+          <input type="number" style={inp} placeholder="0.00" value={form.cost} onChange={e => set("cost", e.target.value)} />
+        </div>
+        <div>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#888", marginBottom: 6 }}>Currency</label>
+          <select style={inp} value={form.currency} onChange={e => set("currency", e.target.value)}>
+            {CURRENCIES.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#888", marginBottom: 6 }}>Status</label>
+          <select style={inp} value={form.status} onChange={e => set("status", e.target.value)}>
+            <option value="">— None —</option>
+            <option value="confirmed">Confirmed ✓</option>
+            <option value="pending">Pending ⏳</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Confirmation Code */}
+      <div style={{ marginBottom: "1rem" }}>
+        <label style={{ display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#888", marginBottom: 6 }}>Confirmation / Booking Code</label>
+        <input style={inp} placeholder="e.g. ABC123" value={form.confirmationCode} onChange={e => set("confirmationCode", e.target.value)} />
+      </div>
+
+      {/* Notes */}
+      <div style={{ marginBottom: "1.5rem" }}>
+        <label style={{ display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#888", marginBottom: 6 }}>Notes</label>
+        <textarea style={{ ...inp, minHeight: 72, resize: "vertical", lineHeight: 1.5 }}
+          placeholder="Any extra details…" value={form.notes} onChange={e => set("notes", e.target.value)} />
+      </div>
+
+      <div style={{ display: "flex", gap: 10, justifyContent: "space-between", alignItems: "center" }}>
+        {form.id && onDelete ? (
+          <button onClick={() => { if (confirm("Delete this item?")) { onDelete(form.id); onClose(); } }} style={{
+            padding: "9px 16px", borderRadius: 8, border: "1.5px solid #f7c1c1",
+            background: "#fff", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif", color: "#a32d2d",
+          }}>Delete</button>
+        ) : <div />}
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={onClose} style={{
+            padding: "9px 20px", borderRadius: 8, border: "1.5px solid #e2e0d8",
+            background: "#fafaf8", cursor: "pointer", fontSize: 14, fontFamily: "Georgia, serif", color: "#555",
+          }}>Cancel</button>
+          <button onClick={handleSubmit} style={{
+            padding: "9px 24px", borderRadius: 8, border: "none",
+            background: "#1a1916", color: "#f5f2ec", cursor: "pointer",
+            fontSize: 14, fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 500,
+          }}>Save Item</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function ItineraryItem({ item, onEdit, onDelete }) {
+  const cfg = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.other;
+  const [expanded, setExpanded] = useState(false);
+  const statusColor = { confirmed: "#0f6e56", pending: "#ba7517" }[item.status] || "#888";
+  const statusLabel = { confirmed: "Confirmed", pending: "Pending" }[item.status] || "";
+
+  return (
+    <div style={{
+      background: item._isCheckout ? "#fafaf8" : "#fff",
+      border: item._isCheckout ? "1.5px dashed #d9b8c4" : "1px solid #ebe9e0",
+      borderRadius: 12, overflow: "hidden", transition: "box-shadow 0.15s",
+      opacity: item._isCheckout ? 0.85 : 1,
+    }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 12, padding: "12px 16px",
+        cursor: "pointer",
+      }} onClick={() => setExpanded(e => !e)}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 8, background: cfg.bg,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 18, flexShrink: 0,
+        }}>{cfg.icon}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+            <span style={{
+              fontSize: 15, fontFamily: "'Playfair Display', Georgia, serif",
+              color: "#1a1916", fontWeight: 500, whiteSpace: "nowrap",
+              overflow: "hidden", textOverflow: "ellipsis",
+            }}>{item.title}{item._isCheckout ? <span style={{ fontSize: 11, color: "#993556", fontWeight: 600, marginLeft: 8, letterSpacing: "0.05em" }}>CHECK-OUT</span> : ""}</span>
+
+          </div>
+          <div style={{ fontSize: 12, color: "#888", marginTop: 2, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {item.location && <span>📍 {item.location}</span>}
+            {item.endDate && item.endDate !== item.date && <span>📅 Until {formatDate(item.endDate)}</span>}
+            {item.startTime && <span>🕐 {fmt12(item.startTime)}{item.endTime ? ` – ${fmt12(item.endTime)}` : ""}</span>}
+            {item.cost && <span>💰 {item.cost} {item.currency}</span>}
+          </div>
+        </div>
+        {!item._isCheckout && (
+          <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+            <button onClick={e => { e.stopPropagation(); onEdit(item); }} style={{
+              background: "none", border: "1px solid #e2e0d8", borderRadius: 6,
+              padding: "4px 8px", cursor: "pointer", fontSize: 12, color: "#666",
+            }}>Edit</button>
+          </div>
+        )}
+      </div>
+
+      {expanded && (item.notes || item.confirmationCode || item.status) && (
+        <div style={{ padding: "0 16px 14px 64px", borderTop: "1px solid #f0ede4" }}>
+          {item.status && statusLabel && (
+            <div style={{ marginTop: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#888" }}>Status: </span>
+              <span style={{ fontSize: 12, color: statusColor, fontWeight: 600 }}>{statusLabel}</span>
+            </div>
+          )}
+          {item.confirmationCode && (
+            <div style={{ marginTop: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#888" }}>Booking ref: </span>
+              <span style={{ fontFamily: "monospace", fontSize: 13, color: "#1a6fc4", fontWeight: 600 }}>{item.confirmationCode}</span>
+            </div>
+          )}
+          {item.notes && (
+            <div style={{ marginTop: 8, fontSize: 13, color: "#555", lineHeight: 1.6 }}>{item.notes}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TripSummary({ items, tripName, startDate, endDate }) {
+  const totalByCurrency = {};
+  items.forEach(item => {
+    if (item.cost && parseFloat(item.cost) > 0) {
+      const c = item.currency || "EUR";
+      totalByCurrency[c] = (totalByCurrency[c] || 0) + parseFloat(item.cost);
+    }
+  });
+
+  const byCat = {};
+  items.forEach(item => {
+    byCat[item.category] = (byCat[item.category] || 0) + 1;
+  });
+
+  const days = startDate && endDate
+    ? Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1
+    : null;
+
+  return (
+    <div style={{
+      background: "linear-gradient(135deg, #1a1916 0%, #2d2b27 100%)",
+      borderRadius: 16, padding: "1.5rem", marginBottom: "1.5rem", color: "#f5f2ec",
+    }}>
+      <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, marginBottom: 4 }}>
+        {tripName || "My Europe Trip"}
+      </div>
+      {startDate && endDate && (
+        <div style={{ fontSize: 13, color: "#a09a8a", marginBottom: "1rem" }}>
+          {formatDate(startDate)} → {formatDate(endDate)} · {days} day{days !== 1 ? "s" : ""}
+        </div>
+      )}
+      {(!startDate || !endDate) && <div style={{ fontSize: 13, color: "#a09a8a", marginBottom: "1rem" }}>{items.length} items planned</div>}
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: "1rem" }}>
+        {Object.entries(byCat).map(([cat, count]) => {
+          const cfg = CATEGORY_CONFIG[cat] || CATEGORY_CONFIG.other;
+          return (
+            <div key={cat} style={{
+              background: "rgba(255,255,255,0.1)", borderRadius: 20,
+              padding: "4px 12px", fontSize: 13, display: "flex", alignItems: "center", gap: 5,
+            }}>
+              {cfg.icon} <span>{count} {cfg.label}{count !== 1 ? "s" : ""}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {Object.keys(totalByCurrency).length > 0 && (
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "1rem" }}>
+          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a09a8a", marginBottom: 6 }}>Total Spent</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+            {Object.entries(totalByCurrency).map(([cur, amt]) => (
+              <div key={cur}>
+                <span style={{ fontSize: 20, fontFamily: "'Playfair Display', Georgia, serif" }}>
+                  {amt.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span style={{ fontSize: 12, color: "#a09a8a", marginLeft: 4 }}>{cur}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function CollapsibleDay({ dateKey, dayItems, onEdit, onDelete }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div style={{ marginBottom: "1rem" }}>
+      <button onClick={() => setOpen(o => !o)} style={{
+        display: "flex", alignItems: "center", gap: 8, marginBottom: open ? 8 : 0,
+        background: "none", border: "none", cursor: "pointer", padding: 0, width: "100%", textAlign: "left",
+      }}>
+        <div style={{
+          background: "#1a1916", color: "#f5f2ec", borderRadius: 8,
+          padding: "4px 12px", fontSize: 12,
+          fontFamily: "'Playfair Display', Georgia, serif",
+          whiteSpace: "nowrap",
+        }}>
+          {dateKey === "No Date" ? "No Date" : formatDate(dateKey)}
+        </div>
+        <span style={{ fontSize: 11, color: "#aaa", marginLeft: 2 }}>{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {dayItems
+            .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""))
+            .map(item => (
+              <ItineraryItem key={item._isCheckout ? item.id + "-checkout" : item.id} item={item} onEdit={onEdit} onDelete={onDelete} />
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EuropeTripPlanner() {
+  const [items, setItems] = useState([]);
+  const [tripName, setTripName] = useState("Europe June 2026");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [filters, setFilters] = useState(new Set());
+  const [loaded, setLoaded] = useState(false);
+  const [view, setView] = useState("timeline"); // timeline | list
+  const [search, setSearch] = useState("");
+  const [syncing, setSyncing] = useState(false);
+
+  const loadFromSheets = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const r = await sheetsGet("trip-data");
+      if (r && r.value) {
+        const data = JSON.parse(r.value);
+        const existing = data.items || [];
+        const existingIds = new Set(existing.map(i => i.id));
+        const merged = [...existing.map(i => /^(f1|f2|tr)-/.test(i.id) ? { ...i, status: "" } : i), ...SEED_EVENTS.filter(e => !existingIds.has(e.id))];
+        setItems(merged);
+        setTripName(data.tripName || "Europe June 2026");
+        setStartDate(data.startDate || "2026-06-03");
+        setEndDate(data.endDate || "2026-06-17");
+        try { await sheetsSet("trip-data", JSON.stringify({ items: merged, tripName: data.tripName || "Europe June 2026", startDate: data.startDate || "2026-06-03", endDate: data.endDate || "2026-06-17" })); } catch(_) {}
+      } else {
+        setItems(SEED_EVENTS);
+        setTripName("Europe June 2026");
+        setStartDate("2026-06-03");
+        setEndDate("2026-06-17");
+        try { await sheetsSet("trip-data", JSON.stringify({ items: SEED_EVENTS, tripName: "Europe June 2026", startDate: "2026-06-03", endDate: "2026-06-17" })); } catch(_) {}
+      }
+    } catch (e) {
+      setItems(SEED_EVENTS);
+      setTripName("Europe June 2026");
+      setStartDate("2026-06-03");
+      setEndDate("2026-06-17");
+    } finally {
+      setLoaded(true);
+      setSyncing(false);
+    }
+  }, []);
+
+  // Load on mount
+  useEffect(() => { loadFromSheets(); }, [loadFromSheets]);
+
+  // Refresh when tab becomes visible
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === "visible") loadFromSheets(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [loadFromSheets]);
+
+  // Save to storage
+  const save = useCallback(async (newItems, name, sd, ed) => {
+    try {
+      await sheetsSet("trip-data", JSON.stringify({ items: newItems, tripName: name, startDate: sd, endDate: ed }));
+    } catch (e) {}
+  }, []);
+
+  const updateItems = (newItems) => {
+    setItems(newItems);
+    save(newItems, tripName, startDate, endDate);
+  };
+
+  const handleSave = (item) => {
+    let newItems;
+    if (items.find(i => i.id === item.id)) {
+      newItems = items.map(i => i.id === item.id ? item : i);
+    } else {
+      newItems = [...items, item];
+    }
+    updateItems(newItems);
+    setModalOpen(false);
+    setEditingItem(null);
+  };
+
+  const handleDelete = (id) => {
+    if (confirm("Remove this item?")) updateItems(items.filter(i => i.id !== id));
+  };
+
+  const handleEdit = (item) => {
+    setEditingItem(item);
+    setModalOpen(true);
+  };
+
+
+  const handleTripMeta = (field, val) => {
+    const updates = { tripName, startDate, endDate, [field]: val };
+    if (field === "tripName") setTripName(val);
+    if (field === "startDate") setStartDate(val);
+    if (field === "endDate") setEndDate(val);
+    save(items, updates.tripName, updates.startDate, updates.endDate);
+  };
+
+  const filteredItems = items.filter(item => {
+    if (filters.size > 0 && !filters.has(item.category)) return false;
+    if (search && !item.title.toLowerCase().includes(search.toLowerCase()) &&
+        !item.location.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const grouped = groupByDate(filteredItems);
+
+  if (!loaded) return (
+    <div style={{ padding: "3rem", textAlign: "center", fontFamily: "Georgia, serif", color: "#888" }}>
+      Loading your trip…
+    </div>
+  );
+
+  return (
+    <div style={{
+      maxWidth: 720, margin: "0 auto", padding: "1.5rem 1rem 4rem",
+      fontFamily: "Georgia, serif", color: "#1a1916", background: "#faf9f6", minHeight: "100vh",
+    }}>
+      <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&display=swap" rel="stylesheet" />
+
+      <TripSummary items={items} tripName={tripName} startDate={startDate} endDate={endDate} />
+
+
+      {/* Controls */}
+      <div style={{ display: "flex", gap: 10, marginBottom: "1rem", flexWrap: "wrap", alignItems: "center" }}>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search…"
+          style={{
+            flex: "1 1 140px", padding: "8px 12px", border: "1px solid #e2e0d8",
+            borderRadius: 8, fontSize: 13, fontFamily: "Georgia, serif", background: "#fff", color: "#1a1916", outline: "none",
+          }}
+        />
+        <button onClick={loadFromSheets} disabled={syncing} style={{
+          padding: "8px 14px", borderRadius: 8, border: "1px solid #e2e0d8",
+          background: "#fff", color: syncing ? "#bbb" : "#555", cursor: syncing ? "default" : "pointer",
+          fontSize: 13, fontFamily: "Georgia, serif", whiteSpace: "nowrap",
+        }}>
+          {syncing ? "Syncing…" : "↻ Reload"}
+        </button>
+        <button onClick={() => { setEditingItem(null); setModalOpen(true); }} style={{
+          padding: "8px 18px", borderRadius: 8, border: "none",
+          background: "#1a1916", color: "#f5f2ec", cursor: "pointer",
+          fontSize: 14, fontFamily: "'Playfair Display', Georgia, serif",
+          display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+        }}>
+          + Add Item
+        </button>
+      </div>
+
+      {/* Filter tabs */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: "1.25rem", alignItems: "center" }}>
+        <button onClick={() => setFilters(new Set())} style={{
+          padding: "5px 12px", borderRadius: 20, fontSize: 12,
+          border: "1px solid", cursor: "pointer",
+          borderColor: filters.size === 0 ? "#1a1916" : "#e2e0d8",
+          background: filters.size === 0 ? "#1a1916" : "#fff",
+          color: filters.size === 0 ? "#f5f2ec" : "#666",
+          fontFamily: "Georgia, serif", transition: "all 0.15s",
+        }}>All</button>
+        {Object.entries(CATEGORY_CONFIG).map(([k, v]) => {
+          const active = filters.has(k);
+          return (
+            <button key={k} onClick={() => setFilters(prev => {
+              const next = new Set(prev);
+              if (next.has(k)) next.delete(k); else next.add(k);
+              return next;
+            })} style={{
+              padding: "5px 12px", borderRadius: 20, fontSize: 12,
+              border: "1px solid", cursor: "pointer",
+              borderColor: active ? "#1a1916" : "#e2e0d8",
+              background: active ? "#1a1916" : "#fff",
+              color: active ? "#f5f2ec" : "#666",
+              fontFamily: "Georgia, serif", transition: "all 0.15s",
+            }}>{v.icon} {v.label}</button>
+          );
+        })}
+      </div>
+
+      {/* Itinerary */}
+      {filteredItems.length === 0 ? (
+        <div style={{
+          textAlign: "center", padding: "3rem 1rem",
+          border: "1.5px dashed #d9d4c7", borderRadius: 16, color: "#aaa",
+        }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🗺️</div>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 18, marginBottom: 6, color: "#888" }}>
+            {items.length === 0 ? "Start planning your adventure" : "No items match your filter"}
+          </div>
+          <div style={{ fontSize: 13 }}>
+            {items.length === 0 ? "Add flights, hotels, activities and more" : "Try a different filter or search term"}
+          </div>
+        </div>
+      ) : (
+        <div>
+          {grouped.map(([dateKey, dayItems]) => (
+            <CollapsibleDay key={dateKey} dateKey={dateKey} dayItems={dayItems} onEdit={handleEdit} onDelete={handleDelete} />
+          ))}
+        </div>
+      )}
+
+      <Modal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditingItem(null); }}>
+        <ItemForm
+          initial={editingItem || EMPTY_ITEM}
+          onSave={handleSave}
+          onDelete={handleDelete}
+          onClose={() => { setModalOpen(false); setEditingItem(null); }}
+        />
+      </Modal>
+    </div>
+  );
+}
+
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(EuropeTripPlanner));
+  </script>
+</body>
+</html>
