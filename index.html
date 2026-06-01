@@ -524,7 +524,10 @@ function EuropeTripPlanner() {
   // Save to storage
   const save = useCallback(async (newItems, name, sd, ed) => {
     try {
-      await sheetsSet("trip-data", JSON.stringify({ items: newItems, tripName: name, startDate: sd, endDate: ed }));
+      const r = await sheetsGet("trip-data");
+      const existing = r && r.value ? JSON.parse(r.value) : {};
+      const deletedIds = existing.deletedIds || [];
+      await sheetsSet("trip-data", JSON.stringify({ items: newItems, deletedIds, tripName: name, startDate: sd, endDate: ed }));
     } catch (e) {}
   }, []);
 
@@ -546,7 +549,18 @@ function EuropeTripPlanner() {
   };
 
   const handleDelete = (id) => {
-    if (confirm("Remove this item?")) updateItems(items.filter(i => i.id !== id));
+    if (confirm("Remove this item?")) {
+      const newItems = items.filter(i => i.id !== id);
+      setItems(newItems);
+      // Load current deletedIds from sheets and append
+      sheetsGet("trip-data").then(r => {
+        const data = r && r.value ? JSON.parse(r.value) : {};
+        const deletedIds = [...new Set([...(data.deletedIds || []), id])];
+        sheetsSet("trip-data", JSON.stringify({ ...data, items: newItems, deletedIds }));
+      }).catch(() => {
+        sheetsSet("trip-data", JSON.stringify({ items: newItems, deletedIds: [id], tripName, startDate, endDate }));
+      });
+    }
   };
 
   const handleEdit = (item) => {
